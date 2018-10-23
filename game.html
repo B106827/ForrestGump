@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <link rel="stylesheet" href="css/reset.css">
+    <link rel="stylesheet" href="css/game.css">
+    <title>エアーホッケー</title>
+</head>
+<body>
+    <div id="nicoscreen"></div>
+    <p id="player2">player2: <span></span></p>
+    <p id="player1">player1: <span></span></p>
+    <div class="main">
+      <p style="font-weight: bold; margin-bottom: 10px;">現在のルーム：<span class="roomname"></span></p>
+      <div class="responsive">
+        <div class="">
+          <p>〜現在の対戦者〜</p>
+          <dl class="vs">
+            <dt>player1:</dt>
+            <dd id="player1_list"></dd>
+            <dt>player2:</dt>
+            <dd id="player2_list"></dd>
+          </dl>
+        </div>
+        <div class="">
+          <p>〜次の挑戦者〜</p>
+          <p id="nextplayer"></p>
+        </div>
+        <div class="">
+          <p>〜観戦者〜</p>
+          <ul class="member">
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="comment_wrap">
+      <input id="comment_text" name="comment" type="text" placeholder="発言してみよう!">
+      <button id="comment_hidden">コメント非表示</button>
+    </div>
+
+
+
+    <button class="enterbutton">参戦予約する</button>
+    <div class="startmsg">
+      <p class="timer" data-seconds-left="3"></p>
+    </div>
+    <canvas id="canvas"></canvas>
+
+    <button id="roombutton" disabled>ルームを削除する<br>(ルーム提供者様専用)</button>
+    <button id="gamebutton">ゲームスタート<br>(クリック後はこのボタンは無効となります)</button>
+    <div class="gameover">
+        <h1></h1>
+        <button id="gameover">もう一度トライする</button>
+    </div>
+
+
+    <script src="js/jquery-2.1.3.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/5.0.1/firebase.js"></script>
+    <script src="js/fire.js"></script>
+    <script src="js/hubeny.js"></script>
+    <script src="js/timer.js"></script>
+
+    <script>
+
+        //戻るの禁止
+        history.pushState(null, null, null);
+        $(window).on("popstate", function (event) {
+        if (!event.originalEvent.state) {
+          history.pushState(null, null, null);
+          return;
+        }
+        });
+        //コメント非表示
+        $('#comment_hidden').on('click',function(){
+          $('#canvas').css({'z-index':3});
+        })
+        const user = localStorage.getItem('local_user');
+        const room_create = localStorage.getItem('room_create');
+        const loginroom = localStorage.getItem('loginroom');
+        $('.roomname').text(loginroom);
+
+
+        // <!-- jQuery&GoogleMapsAPI -->
+        //-----------------------------------------
+        //2．位置情報の取得ごとに実行する処理
+        //-----------------------------------------
+        function mapsInit(position) {
+            //ユーザの現在のlat=緯度、lon=経度 を取得
+            const lat = position.coords.latitude;
+            const lon = position.coords.longitude;
+            localStorage.setItem('lat',lat);
+            localStorage.setItem('lon',lon);
+
+            //firebase上の部屋の座標を常に場の作成者に
+            if(room_create == 'true'){
+              $('#roombutton').prop('disabled',false);
+              fire_dir.ref(loginroom).update({
+                room_lat: lat,
+                room_lon: lon
+              });
+            };
+
+            //G'sの場所
+            const gs_lat = 35.66728791;
+            const gs_lon = 139.71386164;
+            //
+            // //ユーザー地点とサービス適用場所の調査
+            let distance = hubeny(lat, lon, gs_lat, gs_lon);
+            if(distance > 50){
+              if(confirm('大変申し訳ありません。利用可能範囲から外れている可能性があります。\nページの再読み込みを行いますか?')){
+                location.reload();
+              }else{
+                return;
+              }
+            }else{
+              $('body').css({'display':'block'});
+            }
+
+            //ルームの距離と離れた時のイベント
+            fire_dir.ref(loginroom).on('value',function(data){
+              //ルームの座標をモニター。
+              let room_lat = data.val().room_lat;
+              let room_lon = data.val().room_lon;
+
+              let room_distance = hubeny(lat, lon, room_lat, room_lon);
+              console.log(room_distance);
+
+              if(room_distance < 20){
+                return;
+              }else{
+                alert('申し訳ありません。ゲーム場から離れたため抜けます。');
+                window.location.href = 'login.html';
+              }
+            });
+
+
+          };
+
+
+
+        //-----------------------------------------
+        //3．位置情報の取得に失敗した場合の処理
+        //-----------------------------------------
+        function mapsError(error) {
+          let e = "";
+          if(error.code == 1){
+            e = '位置情報取得の許可をお願いします。\nページの再読み込みを致します。';
+            location.reload();
+          }else if(error.code == 2){
+            e = '申し訳ありません。位置情報が取得できません。\nページの再読み込みを致します。';
+          }else if(error.code == 3){
+            e = 'タイムアウトです。';
+          }
+          alert(e);
+        };
+
+        //-----------------------------------------
+        //4.位置情報取得オプション
+        //-----------------------------------------
+        const set ={
+          enableHighAccuracy: true, //より高精度な位置を求める
+          maximumAge: 0,        //最後の現在地情報取得が20秒以内であればその情報を再利用する設定
+          timeout: 10000            //10秒以内に現在地情報を取得できなければ、処理を終了
+        };
+
+
+        //-----------------------------------------
+        //実行する関数[initialize]
+        //-----------------------------------------
+        //Main:位置情報を取得する処理 //getCurrentPosition :or: watchPosition
+        let watchId;
+        function frequently_Map(){
+          let watchId = navigator.geolocation.watchPosition(mapsInit, mapsError, set);
+        };
+        // navigator.geolocation.clearWatch(watchId);
+        //上記関数を実行！
+        frequently_Map();
+
+        // <!-- jQuery&GoogleMapsAPI終わり-->
+
+
+        /*---------------------------
+         * ゲーム
+         *--------------------------*/
+         //canvas初期化
+         const can = $('#canvas')[0];
+         const ctx = can.getContext('2d');
+
+        //ボールオブジェクト
+        let ball = {
+            w: 6,
+            h: 3,
+            speed: -1,
+            posX: can.width/2-3,  //スタート位置(x座標)
+            posY: can.height-13,  //スタート位置(y座標)
+            draw: function(){
+                    ctx.fillRect(ball.posX, ball.posY, ball.w, ball.h);
+                }
+        };
+
+        //ボールの動き+反射条件
+        let i = 1;
+        let winner;
+        let loser;
+        let ball_move = function(){
+
+            //まずボール描く
+            ctx.clearRect(ball.posX, ball.posY, ball.w, ball.h);
+            //テーブル・壁での反転条件
+            if(ball.posY == (table_2.posY+table_2.h) && (ball.posX+ball.w)>=table_2.posX && ball.posX<=(table_2.posX+table.w)){
+                ball.speed *= -1
+            }else if((ball.posY+ball.h)==table.posY && (ball.posX+ball.w)>=table.posX && ball.posX<=(table.posX+table.w)){
+                ball.speed *= -1
+            }else if((ball.posX+ball.w)==300){
+                i *= -1
+            }else if(ball.posX==0){
+                i *= -1
+            }else if((ball.posY+ball.h)==table.posY+50){  //2の勝ち
+                //勝敗判定
+                $('.gameover').css({'display':'block','opacity':'0.8'});
+                fire_dir.ref(loginroom).on('child_added',function(data){
+                  let player_No = data.val().player_No;
+                  let player = data.val().user;
+                  if(player_No == 1){
+                    loser = player;
+                  }else if(player_No == 2){
+                    $('.gameover h1').text(player+'さんの勝ち!');
+                    winner = player;
+                  }
+                });
+                $('#gameover').on('click',function(){
+                    fire_dir.ref(loginroom+'/game').set({
+                      game: 'stop'
+                    });
+                });
+            }else if((ball.posY)==table_2.posY-50){  //1の勝ち
+                //勝敗判定
+                $('.gameover').css({'display':'block','opacity':'0.8'});
+                fire_dir.ref(loginroom).on('child_added',function(data){
+                  let player_No = data.val().player_No;
+                  let player = data.val().user;
+                  if(player_No == 1){
+                    $('.gameover h1').text(player+'さんの勝ち!');
+                    winner = player;
+                  }else if(player_No == 2){
+                    loser = player;
+                  }
+                });
+                $('#gameover').on('click',function(){
+                    fire_dir.ref(loginroom+'/game').set({
+                      game: 'stop'
+                    });
+                });
+            }
+            ball.posY -= ball.speed;
+            ball.posX += i;
+            ctx.fillRect(ball.posX, ball.posY, ball.w, ball.h);
+          };
+
+          fire_dir.ref(loginroom+"/game").on('value',function(data){
+            let game = data.val().game;
+            let player_No = localStorage.getItem('player_No');
+            let all_player = localStorage.getItem('all_player');
+            if(game == 'stop'){
+              if(user == winner && player_No == 1){
+                return;
+              }else if(user == winner && player_No == 2){
+                fire_dir.ref(loginroom+"/"+user).update({
+                  player_No: 1
+                });
+                localStorage.setItem('player_No',1);
+              }else if(user == loser){
+                fire_dir.ref(loginroom+"/"+user).update({
+                  player_No: 0
+                });
+                localStorage.setItem('player_No',0);
+                localStorage.removeItem('enter');
+              }else if(user != winner && user != loser ){
+                fire_dir.ref(loginroom+"/"+user).update({
+                  player_No: player_No-1
+                });
+                localStorage.setItem('player_No',player_No-1);
+              }else if(player_No == 0){
+                return;
+              }
+              fire_dir.ref(loginroom+'/game').remove();  //自身も消去
+              fire_dir.ref(loginroom+'/bar').remove();  //barディレクトリ消去
+              fire_dir.ref(loginroom).update({
+                all_player: all_player-1
+              });
+              localStorage.setItem('all_player',all_player-1);
+              location.reload();
+            }
+          });
+
+
+
+        /*---------------------------
+         * テーブル*2
+         *--------------------------*/
+
+        //テーブルオブジェクト(下側)
+         let table = {
+            w: 30,
+            h: 5,
+            speed: 1,
+            posX: can.width/2-15,
+            posY: 140,
+            draw: function(){
+                ctx.fillRect(table.posX, table.posY, table.w, table.h);
+            }
+         }
+
+         //テーブルオブジェクト(上側)
+         let table_2 = {
+            w: 30,
+            h: 5,
+            speed: 1,
+            posX: can.width/2-15,
+            posY: 5,
+            draw: function(){
+                ctx.fillRect(table_2.posX, table_2.posY, table_2.w, table_2.h);
+            }
+         }
+
+         //テーブルの動き+反射条件
+         let table_move = function(){
+            ctx.clearRect(table.posX, table.posY, table.w, table.h);
+            if(table.posX == 10){
+                 table.speed *= -1;
+            }else if(table.posX == 260){
+                 table.speed *= -1;
+            }
+            table.posX += table.speed;
+            ctx.fillRect(table.posX, table.posY, table.w, table.h);
+         }
+
+         //テーブル_2の動き+反射条件
+         let table_2_move = function(){
+            ctx.clearRect(table_2.posX, table_2.posY, table_2.w, table_2.h);
+            if(table_2.posX == 10){
+                 table_2.speed *= -1;
+            }else if(table_2.posX == 260){
+                 table_2.speed *= -1;
+            }
+            table_2.posX += table_2.speed;
+            ctx.fillRect(table_2.posX, table_2.posY, table_2.w, table_2.h);
+         }
+
+         //クリックもしくはスマホタッチでテーブル反転
+         let clickEventType = ((window.ontouchstart !== null)?'click':'touchstart');
+         $(document).on(clickEventType,function(){
+             if(localStorage.getItem('player_No') == 1){
+               fire_dir.ref(loginroom+"/bar").push({
+                 bar: 1
+               });
+             }else if(localStorage.getItem('player_No') == 2){
+               fire_dir.ref(loginroom+"/bar").push({
+                 bar: 2
+               });
+             }
+         });
+         //ゲームスタートボタンがおされたらバーの動き監視
+         fire_dir.ref(loginroom+"/bar").on('child_added',function(data){
+           let bar = data.val().bar;
+           if(bar == 1){
+             table.speed *= -1;
+           }else if(bar == 2){
+             table_2.speed *= -1;
+           }
+         });
+
+
+
+
+        /*---------------------------
+         * 読み込み時に実行する関数
+         *--------------------------*/
+
+        //ボール,テーブル初期位置
+        $(window).on('load',function(){
+            ball.draw();
+            table.draw();
+            table_2.draw();
+        });
+
+        /*---------------------------
+         * 参加者と対戦者の区別と表示
+         *--------------------------*/
+       fire_dir.ref(loginroom).on('child_added',function(data){
+         let player_No = data.val().player_No;
+         let member = data.val().user;
+         if(player_No == 0 || player_No >= 4){
+           $('.member').prepend('<li>'+member+'</li>');
+         }else if(player_No == 1){
+           $('#player1_list').text(member);
+           if(localStorage.getItem('local_user') == member){
+             $('#player1 span').text(member+'(あなた)');
+           }else{
+             $('#player1 span').text(member+'(あいて)');
+           }
+         }else if(player_No == 2){
+           $('#player2_list').text(member);
+           if(localStorage.getItem('local_user') == member){
+             $('#player2 span').text(member+'(あなた)');
+           }else{
+             $('#player2 span').text(member+'(あいて)');
+           }
+         }else if(player_No == 3){
+           $('#nextplayer').text(member);
+         }
+         if(localStorage.getItem('player_No') == 0 || localStorage.getItem('player_No') >= 3){
+           $('#gamebutton').prop('disabled',true);
+         }
+       });
+
+
+        /*---------------------------
+         * 参戦予約ボタン
+         *--------------------------*/
+         //現在の参戦希望者の人数を取得
+        fire_dir.ref(loginroom).on('value',function(data){
+          let all_player = data.val().all_player;
+          localStorage.setItem('all_player',all_player);
+        });
+
+        //参戦ボタン押したら参戦希望人数を＋１して更新。また自分の情報もfirebaseとローカルに保存。
+        $('.enterbutton').on('click',function(){
+          $('.enterbutton').prop('disabled',true);
+          let new_all_player = localStorage.getItem('all_player');
+          new_all_player++;
+          fire_dir.ref(loginroom).update({
+            all_player: new_all_player
+          });
+          fire_dir.ref(loginroom+"/"+user).update({
+            player_No: new_all_player
+          });
+          localStorage.setItem('player_No',new_all_player);
+          localStorage.setItem('enter',true);
+          location.reload();
+        })
+
+        //一度参戦ボタン押したらリロードしても押せないようにする
+        if(localStorage.getItem('enter')){
+          $('.enterbutton').prop('disabled',true);
+        };
+
+
+        /*---------------------------
+         * ルーム削除
+         *--------------------------*/
+         $('#roombutton').on('click',function(){
+           let n;
+           fire_dir.ref("allroom").on('value',function(data){
+             n = localStorage.setItem('allroom',data.val().room_num)
+           });
+           n = localStorage.getItem('allroom');
+           n--;
+           fire_dir.ref(loginroom).remove().then(function(){
+             alert('ルーム提供者様によりルームが削除されました');
+             window.location.href = 'login.html';
+           });
+           fire_dir.ref("allroom").set({
+             room_num: n
+           });
+         });
+
+
+        /*---------------------------
+         * ゲームスタートボタン
+         *--------------------------*/
+
+         $('#gamebutton').on('mousedown',function(){
+            fire_dir.ref(loginroom+'/game').set({
+              game: 'start'
+            });
+          });
+
+          //firebaseからの返答後ページに反映
+          fire_dir.ref(loginroom+'/game').on('value',function(data){
+            let game = data.val().game;
+            if(game == 'start'){
+              $('#gamebutton').prop('disabled',true);
+              $('.timer').text('まもなくゲームが始まります。');
+              setTimeout(function(){
+                  $('.timer').text('');
+                  $('.timer').startTimer({
+                    onComplete: function(element){
+                      $(element).css({'display':'none'});
+                      setInterval(function(){
+                          ball_move();
+                          table_move();
+                          table_2_move();
+                      },100);
+                    }
+                  });
+              },1000);
+            }
+          });
+
+        /*---------------------------
+         * ニコ動コメント
+         *--------------------------*/
+          function setPosition(id) {
+              var top = $('#nicoscreen').offset();
+              var itemHeight = $(id).height();
+              var bottom = top.top + $('#nicoscreen').height() - itemHeight;
+              var length = bottom - top.top;
+              return bottom - length * Math.random();
+          }
+          var commentNum = 0;
+          function addComment(comment) {
+              commentNum++;
+              if(comment != undefined){
+                var commentPos = $('#nicoscreen').offset();
+                var nico_comment = $('<div id="item" style="font-size: 18px; color: white; font-weight: bold; text-shadow: black 1px 1px 1px; width: 100px; white-space: nowrap; position: absolute;">' + comment + '</li>').appendTo('#nicoscreen');
+                var offset = nico_comment.offset({top:setPosition('#item'),left:commentPos.left + $('#nicoscreen').width()});
+                var animation = offset.animate({left:-$(window).width()}, {
+                    duration: 10000,
+                    easing: 'linear',
+                    queue: false,
+                    complete: function () {
+                        animation.hide();
+                    }
+                });
+              }
+          };
+          fire_dir.ref(loginroom+'/comment').on('value',function(data){
+            let comment = data.val().comment;
+            addComment(comment);
+          });
+          $('#comment_text').on('keydown',function(e){
+            if(e.keyCode == 13){
+              fire_dir.ref(loginroom+'/comment').set({
+                comment: $(this).val()
+              });
+              $(this).val('');
+            }
+          });
+
+    </script>
+
+</body>
+</html>

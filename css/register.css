@@ -1,0 +1,73 @@
+@charset "utf-8";
+html{
+    width: 100vw;
+    height: 100vh;
+}
+body{
+    background-image: url("../img/o0290041813135618301.png");
+    width: 100vw;
+    height: 100vh;
+    font-size: 14px;
+    background-repeat: no-repeat;
+    background-size: 100%;
+    margin: 0px;
+    padding: 0px;
+}
+
+/* メイン */
+.main{
+    position: absolute;
+    top: 10%;
+    text-align: center;
+    width: 100%;
+    padding: 10px;
+}
+h1{
+  font-family: "Rounded Mplus 1c",sans-serif;
+  font-size: 32px;
+  margin-bottom: 50px;
+}
+p{
+  font-family: "Rounded Mplus 1c",sans-serif;
+  margin-bottom: 10px;
+}
+.main span{
+  background: linear-gradient(transparent 70%, #adff2f 70%);
+  font-weight: bold;
+}
+#user_id{
+  width: 200px;
+  height: 30px;
+  color: black;
+  font-size: 14px;
+  margin: 10px auto 5px;
+  display: block;
+}
+.user_button{
+  margin-bottom: 5px;
+}
+.memo{
+  margin-bottom: 50px;
+}
+
+#register_button{
+    width: 10%;
+    height: 25px;
+    font-size: 14px;
+    color: black;
+    background: #32cd32;
+    border-bottom: solid 2px #627295;
+    border-radius: 3px;
+}
+#register_button:active {/*ボタンを押したとき*/
+    -ms-transform: translateY(4px);
+    -webkit-transform: translateY(4px);
+    transform: translateY(4px);/*下に動く*/
+    border-bottom: none;/*線を消す*/
+}
+
+@media screen and (max-width: 480px){
+  body{
+    background-size: 100vh;
+  }
+}

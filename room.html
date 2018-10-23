@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Chat</title>
+    <link rel="stylesheet" href="css/reset.css">
+    <link rel="stylesheet" href="css/style_0.css">
+    <link href="https://fonts.googleapis.com/earlyaccess/roundedmplus1c.css" rel="stylesheet">
+    <script>
+    </script>
+</head>
+<body>
+    
+    <div class="title">Yap!</div>
+    <div class="main">
+        <div id="pastmsg"></div>
+        <form class="input_text">
+            <textarea required id="text" rows="2"></textarea>
+            <button class="submit">送信</button>
+        </form>
+    </div>
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/5.0.1/firebase.js"></script>
+    <script src="js/user.js"></script>
+    <script>
+        
+        //ページ読み込み後ユーザー識別
+        let local_user = localStorage.getItem("local_user");
+        let local_icon = localStorage.getItem("local_icon");
+            
+        fire.on('child_added',function(fire){
+            let fire_data;
+            fire_data = fire.val()
+            if(fire_data.user == local_user){
+                if(fire_data.icon == "buke"){
+                    $('#pastmsg').append('<div class="right"><textarea readonly cols="40" rows="2">'+fire_data.msg+'</textarea></div>');
+                    $('#pastmsg p:last').text(fire_data.user);
+                }else if(fire_data.icon == "caram"){
+                    $('#pastmsg').append('<div class="right"><textarea readonly cols="40" rows="2">'+fire_data.msg+'</textarea></div>');
+                    $('#pastmsg p:last').text(fire_data.user);
+                }else{
+                    $('#pastmsg').append('<div class="right"><textarea readonly cols="40" rows="2">'+fire_data.msg+'</textarea></div>');
+                    $('#pastmsg p:last').text(fire_data.user);
+                }
+            }else{
+                if(fire_data.icon == "buke"){
+                    $('#pastmsg').append('<div class="left"><p></p><img src="img/buke.png"><textarea readonly cols="40" rows="2">'+fire_data.msg+'</textarea></div>');
+                    $('#pastmsg p:last').text(fire_data.user);
+                }else if(fire_data.icon == "caram"){
+                    $('#pastmsg').append('<div class="left"><p></p><img src="img/caram.png"><textarea readonly cols="40" rows="2">'+fire_data.msg+'</textarea></div>');
+                    $('#pastmsg p:last').text(fire_data.user);
+                }else if(fire_data.icon == "tuku"){
+                    $('#pastmsg').append('<div class="left"><p></p><img src="img/tuku.jpg"><textarea readonly cols="40" rows="2">'+fire_data.msg+'</textarea></div>');
+                    $('#pastmsg p:last').text(fire_data.user);
+                }else{
+                    return;
+                }
+            }
+        });
+        
+
+        //送信
+        $('.submit').on('click',function(){
+            fire.push({
+                user: local_user,  //左右の区別のため
+                icon: local_icon,
+                msg: $('#text').val()
+            })
+        });
+      
+    </script>
+</body>
+</html>

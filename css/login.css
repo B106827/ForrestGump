@@ -1,0 +1,77 @@
+@charset "utf-8";
+html{
+    width: 100%;
+    height: 100%;
+}
+body{
+    background-image: url("../img/o0290041813135618301.png");
+    width: 100%;
+    height: 100%;
+    font-size: 14px;
+    background-repeat: no-repeat;
+    background-size: 100%;
+}
+
+/* メイン */
+.main{
+    position: absolute;
+    top: 10%;
+    text-align: center;
+    width: 100%;
+    padding: 10px;
+}
+.main h2{
+  display: block;
+  font-size: 32px;
+  margin-bottom: 50px;
+}
+.main p{
+    font-family: "Rounded Mplus 1c",sans-serif;
+    margin-bottom: 10px;
+}
+
+ul{
+    width: 50%;
+    margin: 0 auto 50px;
+    border: black;
+    position: relative;
+    z-index: 100;
+}
+.roomlink{
+  display: block;
+  margin-top: 10px;
+  text-align: center;
+  color: blue;
+  text-decoration: underline;
+  font-size: 16px;
+  font-weight: bold;
+}
+a{
+    display: block;
+    margin-top: 20px;
+    text-align: center;
+}
+#create_button{
+    width: 15%;
+    height: 25px;
+    font-size: 14px;
+    color: black;
+    background: #32cd32;
+    border-bottom: solid 2px #627295;
+    border-radius: 3px;
+}
+#create_button:active {/*ボタンを押したとき*/
+    -ms-transform: translateY(4px);
+    -webkit-transform: translateY(4px);
+    transform: translateY(4px);/*下に動く*/
+    border-bottom: none;/*線を消す*/
+}
+
+@media screen and (max-width: 480px){
+  body{
+    background-size: 100vh;
+  }
+  #create_button{
+    width: 200px;
+  }
+}

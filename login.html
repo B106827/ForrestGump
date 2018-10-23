@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Login</title>
+    <link rel="stylesheet" href="css/reset.css">
+    <link rel="stylesheet" href="css/login.css">
+    <link href="https://fonts.googleapis.com/earlyaccess/roundedmplus1c.css" rel="stylesheet">
+
+</head>
+<body>
+    <div class="main">
+        <h2>ようこそ<span id="user"></span>さん!</h2>
+        <p>〜近くのゲームルーム一覧〜<br><span>何も表示されていない場合はページをリロードしてください。<br>それでも何も表示されない場合は近くにルームがありません。</span></p>
+        <ul>
+        </ul>
+        <div class="create">
+          <div class="talkroom">
+            <p>あなたがゲームルームの提供者となります!みんなが来るのを待ちましょう!</p>
+          </div>
+          <input id="create_button" type="submit" value="ゲームルーム作成">
+        </div>
+
+
+    </div>
+
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+    <script>
+      $('body').css({'display':'none'});
+    </script>
+    <script src="https://www.gstatic.com/firebasejs/5.0.1/firebase.js"></script>
+    <script src="js/fire.js"></script>
+    <script src="js/hubeny.js"></script>
+    <script>
+
+        //戻るの禁止
+        history.pushState(null, null, null);
+        $(window).on("popstate", function (event) {
+        if (!event.originalEvent.state) {
+          history.pushState(null, null, null);
+          return;
+        }
+        });
+        //ユーザー名を表示
+        fire_dir.ref("alluser").on('child_added',function(data){
+          let alluser = data.val().fire_user;
+          let local_user = localStorage.getItem('local_user');
+          if(local_user == alluser){
+            $('#user').text(local_user);
+          }
+        });
+
+        //firebaseからの受信(部屋が存在するかどうか。存在するなら何部屋か)
+        let n;
+        fire_dir.ref("allroom").on('value',function(data){
+          localStorage.setItem('allroom',data.val().room_num)
+        });
+
+        if(!localStorage.getItem('allroom')){
+            n = 0;
+        }else{
+            n = localStorage.getItem('allroom')
+        };
+
+        // <!-- jQuery&GoogleMapsAPI -->
+        //-----------------------------------------
+        //2．位置情報の取得ごとに実行する処理
+        //-----------------------------------------
+        function mapsInit(position) {
+            //ユーザの現在のlat=緯度、lon=経度 を取得
+            const lat = position.coords.latitude;
+            const lon = position.coords.longitude;
+
+            localStorage.setItem('lat',lat);
+            localStorage.setItem('lon',lon);
+
+            //G'sの場所
+            const gs_lat = 35.66728791;
+            const gs_lon = 139.71386164;
+
+            // ユーザー地点とサービス適用場所の調査()
+            let distance = hubeny(lat, lon, gs_lat, gs_lon);
+            console.log(distance);
+            if(distance > 50){
+              if(confirm('大変申し訳ありません。利用可能範囲から外れている可能性があります。\nページの再読み込みを行いますか?')){
+                location.reload();
+              }else{
+                return;
+              }
+            }else{
+              $('body').css({'display':'block'});
+            }
+
+            $('ul').empty();  //GPS情報拾うたびにulの中からにする。
+            for(let i=1; i<=n; i++){
+              fire_dir.ref("room"+i).on('value',function(data){
+                  //全ルームの座標をモニター。
+                  let room_lat = data.val().room_lat;
+                  let room_lon = data.val().room_lon;
+
+                  let room_distance = hubeny(lat, lon, room_lat, room_lon);
+                  console.log(room_distance);
+
+                  if(room_distance < 20){
+                    $('.create').css({'display':'none'});
+                    $('ul').prepend('<li><a class="roomlink" href="#">'+'room'+i+'</a></li>');
+                  }else{
+                    return;
+                  }
+              });
+            };
+            if($('.roomlink').length == 0){
+              $('.create').css({'display':'block'});
+            };
+
+        };
+
+
+
+        //-----------------------------------------
+        //3．位置情報の取得に失敗した場合の処理
+        //-----------------------------------------
+        function mapsError(error) {
+          let e = "";
+          if(error.code == 1){
+            e = '位置情報取得の許可をお願いします。\nページの再読み込みを致します。';
+            location.reload();
+          }else if(error.code == 2){
+            e = '申し訳ありません。位置情報が取得できません。\nページの再読み込みを致します。';
+          }else if(error.code == 3){
+            e = 'タイムアウトです。';
+          }
+          alert(e);
+        };
+
+        //-----------------------------------------
+        //4.位置情報取得オプション
+        //-----------------------------------------
+        const set ={
+          enableHighAccuracy: true, //より高精度な位置を求める
+          maximumAge: 0,        //最後の現在地情報取得が20秒以内であればその情報を再利用する設定
+          timeout: 20000            //10秒以内に現在地情報を取得できなければ、処理を終了
+        };
+
+
+        //-----------------------------------------
+        //実行する関数[initialize]
+        //-----------------------------------------
+        //Main:位置情報を取得する処理 //getCurrentPosition :or: watchPosition
+        let watchId;
+        function frequently_Map(){
+          let watchId = navigator.geolocation.watchPosition(mapsInit, mapsError, set);
+        };
+        // navigator.geolocation.clearWatch(watchId);
+        //上記関数を実行！
+        frequently_Map();
+
+        // <!-- jQuery&GoogleMapsAPI終わり-->
+
+
+        //-----------------------------------------
+        //firebase
+        //----------------------------------------
+        //リンククリックの処理(room_createをfalseに切り替えるのをいれる)
+          $(document).on('click','.roomlink',function(){
+            let user = localStorage.getItem('local_user');
+            localStorage.setItem("room_create",false);
+            localStorage.setItem('player_No',0);
+            let room = $(this).text();
+            localStorage.setIte$m('loginroom',room);
+            fire_dir.ref(room+"/"+user).set({
+              user: user,
+              room_create: false,
+              player_No: 0
+            });
+            window.location.href = 'game.html';
+          });
+        // ログインボタンクリック(場の作成)
+          $('#create_button').on('click',function(){
+              let user = localStorage.getItem('local_user');
+              localStorage.setItem("room_create",true);
+              localStorage.setItem('player_No',0);
+              n++;
+              localStorage.setItem('loginroom',"room"+n);
+
+              fire_dir.ref("allroom").set({
+                  room_num: n
+              });
+              fire_dir.ref("room"+n).set({
+                room_creater: user,
+                room_lat: localStorage.getItem("lat"),
+                room_lon: localStorage.getItem("lon"),
+                all_player: 0
+              });
+              fire_dir.ref("room"+n+"/"+user).set({
+                user: user,
+                room_create: true,
+                player_No: 0
+              });
+              //ページ移動
+              window.location.href = 'game.html';
+          });
+
+    </script>
+</body>
+</html>

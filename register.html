@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Register now</title>
+    <link rel="stylesheet" href="css/reset.css">
+    <link rel="stylesheet" href="css/register.css">
+    <link href="https://fonts.googleapis.com/earlyaccess/roundedmplus1c.css" rel="stylesheet">
+</head>
+<body>
+    <div class="main">
+        <h1>イチゴイチエ!</h1>
+        <p>ユーザー名を登録して下さい<br>(<span>プライバシーを考慮したユーザー名にしましょう</span>)</p>
+        <input id="user_id" type="text" placeholder="ユーザー名">
+        <button class="user_button" type="button" name="button">ユーザー名が使用可能か調べる</button>
+        <p class="memo">(何もアラートがなければ使用可能です。)</p>
+        <div class="talkroom">
+          <p>ようこそイチゴイチエへ!</p>
+        </div>
+        <input id="register_button" type="submit" value="登録!">
+    </div>
+
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/5.0.1/firebase.js"></script>
+    <script src="js/fire.js"></script>
+    <script>
+          //戻るの禁止
+          history.pushState(null, null, null);
+          $(window).on("popstate", function (event) {
+          if (!event.originalEvent.state) {
+            history.pushState(null, null, null);
+            return;
+          }
+          });
+          $('#register_button').css({'display':'none'});
+          $('.user_button').on('click',function(){
+            $('#register_button').css({'display':'inline'});
+            let i = $('#user_id').val();
+            localStorage.setItem('local_user',i);
+            if(i.length == 0){
+              alert("ユーザー名が入力されていません");
+              $('#user_id').focus();
+            }else{
+              fire_dir.ref("alluser").on('child_added',function(data){
+                let alluser = data.val().fire_user;
+                console.log(alluser);
+                if(i == alluser){
+                  alert('大変申し訳ありません。\nすでに他の方が使用されているユーザー名です。ユーザー名を変更してください');
+                  $('#user_id').val('');
+                  $('#user_id').focus();
+                }
+              });
+            }
+          });
+
+          $('#register_button').on('click',function(){
+            let i = $('#user_id').val();
+            if(i.length == 0){
+              alert("ユーザー名が登録されていません");
+              $('#user_id').focus();
+            }else{
+              alert('登録完了です!ページを移動します。');
+              fire_dir.ref("alluser").push({
+                  fire_user: localStorage.getItem('local_user')
+              });
+              window.location.href = 'login.html';
+            }
+          });
+
+  </script>
+</body>
+</html>
