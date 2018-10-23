@@ -1,14 +1,13 @@
 // Initialize Firebase
-
 var config = {
-    apiKey: "AIzaSyDYs7Rb0On2_R6pdnehYB9mg3JKAHDXm1g",
-    authDomain: "work-chat-a23ec.firebaseapp.com",
-    databaseURL: "https://work-chat-a23ec.firebaseio.com",
-    projectId: "work-chat-a23ec",
+    apiKey: "AIzaSyANQNMIjD_xJn9BZvTjXywrXw4JyTxUUiQ",
+    authDomain: "forrestgump-794a7.firebaseapp.com",
+    databaseURL: "https://forrestgump-794a7.firebaseio.com",
+    projectId: "forrestgump-794a7",
     storageBucket: "",
-    messagingSenderId: "76427543557"
-};
-firebase.initializeApp(config);
+    messagingSenderId: "133053189542"
+  };
+  firebase.initializeApp(config);
 //インスタンス作成
 let fire = firebase.database().ref();
 let fire_dir = firebase.database();
